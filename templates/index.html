@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Wallpaper Engine Web Manager{% endblock %}
+
+{% block content %}
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">总计壁纸</h6>
+                        <h3 class="mb-0" id="totalCount">-</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-images fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <small id="totalSize">-</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">已订阅</h6>
+                        <h3 class="mb-0" id="subscribedCount">-</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <small id="subscribedSize">-</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">未订阅</h6>
+                        <h3 class="mb-0" id="unsubscribedCount">-</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <small id="unsubscribedSize">-</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">可释放空间</h6>
+                        <h3 class="mb-0" id="reclaimableSize">-</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-hdd fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <small>删除未订阅壁纸</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="input-group">
+            <span class="input-group-text">
+                <i class="fas fa-search"></i>
+            </span>
+            <input type="text" class="form-control" id="searchInput" 
+                   placeholder="搜索壁纸ID或标题...">
+        </div>
+    </div>
+    <div class="col-md-4">
+        <select class="form-select" id="statusFilter">
+            <option value="all">全部壁纸</option>
+            <option value="subscribed">已订阅</option>
+            <option value="unsubscribed">未订阅</option>
+        </select>
+    </div>
+</div>
+
+<!-- Wallpaper Tabs -->
+<div class="card">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" id="wallpaperTabs">
+            <li class="nav-item">
+                <a class="nav-link active" id="subscribed-tab" data-bs-toggle="tab" href="#subscribed">
+                    <i class="fas fa-check-circle me-1"></i>
+                    已订阅 <span class="badge bg-success" id="subscribedBadge">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="unsubscribed-tab" data-bs-toggle="tab" href="#unsubscribed">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    未订阅 <span class="badge bg-warning" id="unsubscribedBadge">0</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="card-body">
+        <div class="tab-content" id="wallpaperTabContent">
+            <!-- Subscribed Wallpapers -->
+            <div class="tab-pane fade show active" id="subscribed">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">已订阅的壁纸</h6>
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="exportData('subscribed')">
+                            <i class="fas fa-download me-1"></i>导出列表
+                        </button>
+                    </div>
+                </div>
+                <div id="subscribedWallpapers" class="wallpaper-grid">
+                    <!-- Wallpapers will be loaded here -->
+                </div>
+            </div>
+            
+            <!-- Unsubscribed Wallpapers -->
+            <div class="tab-pane fade" id="unsubscribed">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>注意：</strong>以下壁纸已不在订阅列表中，但文件仍存在。您可以安全地删除它们来释放存储空间。
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">未订阅的壁纸</h6>
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="exportData('unsubscribed')">
+                            <i class="fas fa-download me-1"></i>导出列表
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm me-2" onclick="deleteSelected()">
+                            <i class="fas fa-trash me-1"></i>删除选中
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteAll()">
+                            <i class="fas fa-trash-alt me-1"></i>删除全部
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label" for="selectAll">
+                            全选
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="unsubscribedWallpapers" class="wallpaper-grid">
+                    <!-- Wallpapers will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Wallpaper Detail Modal -->
+<div class="modal fade" id="wallpaperModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="wallpaperModalTitle">壁纸详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <img id="wallpaperPreviewLarge" class="img-fluid rounded" src="" alt="预览图">
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>ID:</strong></td>
+                                <td id="wallpaperDetailId">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>标题:</strong></td>
+                                <td id="wallpaperDetailTitle">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>大小:</strong></td>
+                                <td id="wallpaperDetailSize">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>状态:</strong></td>
+                                <td id="wallpaperDetailStatus">-</td>
+                            </tr>
+                            <tr>
+                                <td><strong>路径:</strong></td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span id="wallpaperDetailPath" class="small text-muted me-2">-</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyPath()" title="复制路径">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="openFolder()">
+                    <i class="fas fa-folder-open me-1"></i>打开文件夹
+                </button>
+                <button type="button" class="btn btn-danger" id="deleteButton" onclick="deleteWallpaper()">
+                    <i class="fas fa-trash me-1"></i>删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/wallpaper.js') }}"></script>
+{% endblock %}

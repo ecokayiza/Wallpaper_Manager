@@ -1,0 +1,5 @@
+Flask==3.0.0
+vdf==3.4
+Pillow==10.0.0
+python-dotenv==1.0.0
+gunicorn==21.2.0

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>配置保存测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input, button { padding: 8px; margin: 5px 0; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        #result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h1>配置保存功能测试</h1>
+    
+    <form id="testForm">
+        <div class="form-group">
+            <label for="steamPath">Steam库路径:</label>
+            <input type="text" id="steamPath" value="F:\SteamLibrary" style="width: 300px;">
+        </div>
+        
+        <div class="form-group">
+            <label for="port">端口:</label>
+            <input type="number" id="port" value="5000" min="1" max="65535">
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="debug" checked> 调试模式
+            </label>
+        </div>
+        
+        <button type="button" onclick="testSaveConfig()">测试保存配置</button>
+        <button type="button" onclick="testGetConfig()">获取当前配置</button>
+    </form>
+    
+    <div id="result"></div>
+
+    <script>
+        async function testSaveConfig() {
+            const config = {
+                steam_library_path: document.getElementById('steamPath').value,
+                server: {
+                    host: '127.0.0.1',
+                    port: parseInt(document.getElementById('port').value),
+                    debug: document.getElementById('debug').checked
+                }
+            };
+            
+            console.log('发送配置:', config);
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                console.log('响应状态:', response.status);
+                const result = await response.json();
+                console.log('响应数据:', result);
+                
+                document.getElementById('result').innerHTML = 
+                    '<h3>保存结果:</h3><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                    
+            } catch (error) {
+                console.error('错误:', error);
+                document.getElementById('result').innerHTML = '<h3>错误:</h3>' + error.message;
+            }
+        }
+        
+        async function testGetConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const result = await response.json();
+                console.log('当前配置:', result);
+                
+                document.getElementById('result').innerHTML = 
+                    '<h3>当前配置:</h3><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                    
+                // 填充表单
+                if (result.success && result.data) {
+                    document.getElementById('steamPath').value = result.data.steam_library_path || '';
+                    document.getElementById('port').value = result.data.server?.port || 5000;
+                    document.getElementById('debug').checked = result.data.server?.debug || false;
+                }
+            } catch (error) {
+                console.error('获取配置错误:', error);
+                document.getElementById('result').innerHTML = '<h3>获取配置错误:</h3>' + error.message;
+            }
+        }
+        
+        // 页面加载时获取当前配置
+        window.addEventListener('load', testGetConfig);
+    </script>
+</body>
+</html>
