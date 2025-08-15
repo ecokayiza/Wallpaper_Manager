@@ -2,6 +2,9 @@
 
 A web-based interface for managing Wallpaper Engine subscriptions using Flask backend and responsive frontend.
 
+
+![demo](static/img/demo.png)
+
 ## Quick Start
 
 1. Install dependencies:
