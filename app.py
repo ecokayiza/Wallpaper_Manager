@@ -51,8 +51,29 @@ def create_app():
     def get_wallpapers():
         """Get all wallpapers"""
         try:
-            subscribed = wallpaper_api.get_subscribed_wallpapers()
-            unsubscribed = wallpaper_api.get_unsubscribed_wallpapers()
+            user_filter = request.args.get('user', None)
+            search_query = request.args.get('search', None)
+            
+            if user_filter and user_filter != 'all':
+                # Filter by specific user
+                subscribed = wallpaper_api.get_wallpapers_by_user(user_filter, subscribed_only=True)
+                unsubscribed = wallpaper_api.get_wallpapers_by_user(user_filter, subscribed_only=False)
+            else:
+                # Get all wallpapers
+                subscribed = wallpaper_api.get_subscribed_wallpapers()
+                unsubscribed = wallpaper_api.get_unsubscribed_wallpapers()
+            
+            # Apply search filter if provided
+            if search_query and search_query.strip():
+                search_term = search_query.strip().lower()
+                
+                def matches_search(wallpaper):
+                    # Search only in title
+                    title_match = search_term in wallpaper.get('title', '').lower()
+                    return title_match
+                
+                subscribed = [w for w in subscribed if matches_search(w)]
+                unsubscribed = [w for w in unsubscribed if matches_search(w)]
             
             return jsonify({
                 'success': True,
@@ -187,7 +208,8 @@ def create_app():
     def get_stats():
         """Get storage and subscription statistics"""
         try:
-            stats = wallpaper_api.get_statistics()
+            user_id = request.args.get('user', None)
+            stats = wallpaper_api.get_statistics(user_id)
             return jsonify({
                 'success': True,
                 'data': stats
@@ -198,6 +220,77 @@ def create_app():
                 'error': str(e)
             }), 500
     
+    @app.route('/api/users')
+    def get_users():
+        """Get all Steam users with their subscription info"""
+        try:
+            from utils.steam_parser import SteamParser
+            parser = SteamParser(app.config)
+            
+            # Get all subscription data
+            all_data = parser.get_all_subscription_data()
+            users = []
+            
+            for user_id, user_subscriptions in all_data.items():
+                active_subscriptions = [item_id for item_id, details in user_subscriptions.items() 
+                                      if details['is_active']]
+                users.append({
+                    'id': user_id,
+                    'display_name': f"用户 {user_id}",
+                    'subscription_count': len(active_subscriptions)
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': users
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    
+    @app.route('/api/steam-paths')
+    def get_steam_paths():
+        """Get current Steam paths being used by the system"""
+        try:
+            from utils.steam_parser import SteamParser
+            from api.config import ConfigAPI
+            
+            # Get configuration
+            config_api = ConfigAPI(app.config)
+            config_data = config_api.get_config()
+            configured_userdata = config_data.get('steam_userdata_path', '') if config_data else ''
+            
+            # Initialize parser with current config
+            parser = SteamParser(app.config)
+            
+            # Get the actual paths being used
+            userdata_path = parser.get_steam_user_data_path()
+            content_path = parser.get_content_path()
+            
+            # Check if we're using fallback
+            using_fallback = False
+            if configured_userdata and configured_userdata.strip():
+                # If a path is configured, check if it's different from what's actually used
+                actual_path_str = str(userdata_path) if userdata_path else ''
+                using_fallback = configured_userdata.strip() != actual_path_str
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'configured_userdata_path': configured_userdata if configured_userdata else None,
+                    'actual_userdata_path': str(userdata_path) if userdata_path else None,
+                    'content_path': str(content_path),
+                    'using_fallback': using_fallback
+                }
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({

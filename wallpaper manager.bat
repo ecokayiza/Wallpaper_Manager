@@ -7,15 +7,34 @@ echo.
 REM 获取当前脚本所在目录
 cd /d "%~dp0"
 
-REM 检查Python是否可用
-python --version > nul 2>&1
+REM 激活conda vis环境
+echo Activating conda vis environment...
+call conda activate vis
 if %errorlevel% neq 0 (
-    echo ❌ Error: Python not found in PATH
-    echo Please make sure Python is installed and added to PATH
+    echo ❌ Error: Failed to activate conda vis environment
+    echo Please make sure conda is installed and vis environment exists
+    echo You can create it with: conda create -n vis python
     echo.
     pause
     exit /b 1
 )
+
+
+
+echo ✅ Conda vis environment activated
+
+REM 检查Python是否可用（应该来自conda vis环境）
+echo Checking Python from conda vis environment...
+python -c "import sys; print('Python', sys.version.split()[0], 'found')" 2>nul
+if %errorlevel% neq 0 (
+    echo ❌ Error: Python not found in conda vis environment
+    echo Please make sure Python is installed in the vis environment
+    echo You can install it with: conda install -n vis python
+    echo.
+    pause
+    exit /b 1
+)
+echo ✅ Python found in conda vis environment
 
 REM 检查是否在项目目录中
 if not exist "app.py" (
@@ -28,17 +47,22 @@ if not exist "app.py" (
 )
 
 REM 检查依赖包
-echo 📦 Checking dependencies...
+echo 📦 Checking dependencies in conda vis environment...
 python -c "import flask" > nul 2>&1
 if %errorlevel% neq 0 (
-    echo ⚠️  Flask not installed, installing dependencies...
+    echo ⚠️  Flask not installed in conda vis environment, installing dependencies...
     pip install -r requirements.txt
     if %errorlevel% neq 0 (
-        echo ❌ Failed to install dependencies
+        echo ❌ Failed to install dependencies in conda vis environment
+        echo Try: conda install -n vis flask
         pause
         exit /b 1
     )
 )
+
+REM 设置Flask环境变量以隐藏开发服务器警告
+set FLASK_ENV=development
+set PYTHONWARNINGS=ignore::UserWarning
 
 echo ✅ Environment check passed
 echo 🌐 Starting Flask server with auto-browser...
@@ -73,4 +97,6 @@ python temp_launcher.py
 
 echo.
 echo 👋 Server stopped
+echo 🔧 Deactivating conda environment...
+call conda deactivate
 pause

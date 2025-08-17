@@ -82,14 +82,13 @@
                 <i class="fas fa-search"></i>
             </span>
             <input type="text" class="form-control" id="searchInput" 
-                   placeholder="搜索壁纸ID或标题...">
+                   placeholder="搜索壁纸标题...">
         </div>
     </div>
     <div class="col-md-4">
-        <select class="form-select" id="statusFilter">
-            <option value="all">全部壁纸</option>
-            <option value="subscribed">已订阅</option>
-            <option value="unsubscribed">未订阅</option>
+        <select class="form-select" id="userFilter">
+            <option value="all">所有用户</option>
+            <!-- 用户选项将通过JavaScript动态加载 -->
         </select>
     </div>
 </div>
@@ -212,6 +211,10 @@
                                 </td>
                             </tr>
                         </table>
+                        
+                        <div id="wallpaperSubscriptionDetails" class="mt-3">
+                            <!-- 订阅详情将在这里显示 -->
+                        </div>
                     </div>
                 </div>
             </div>

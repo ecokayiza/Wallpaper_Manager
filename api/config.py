@@ -18,6 +18,7 @@ class ConfigAPI:
         """Get current configuration"""
         return {
             'steam_library_path': self.config.get('steam_library_path', ''),
+            'steam_userdata_path': self.config.get('steam_userdata_path', ''),
             'workshop_file': self.config.get('workshop_file', ''),
             'content_path': self.config.get('content_path', ''),
             'server': self.config.get('server', {}),
@@ -41,6 +42,7 @@ class ConfigAPI:
             # Only update our custom config items, not Flask's built-in config
             custom_config_keys = [
                 'steam_library_path',
+                'steam_userdata_path',
                 'workshop_file', 
                 'content_path',
                 'server',

@@ -7,6 +7,10 @@ class WallpaperManager {
         };
         this.selectedWallpapers = new Set();
         this.currentWallpaper = null;
+        this.users = [];  // Store user list
+        this.currentUserFilter = 'all';
+        this.currentSearchQuery = '';
+        this.searchTimeout = null;
         
         this.init();
     }
@@ -14,6 +18,7 @@ class WallpaperManager {
     init() {
         this.setupEventListeners();
         this.loadConfiguration();
+        this.loadUsers();
         this.loadData();
     }
     
@@ -21,16 +26,28 @@ class WallpaperManager {
         // Search input
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
+            console.log('Search input found, setting up event listener');
             searchInput.addEventListener('input', (e) => {
-                this.filterWallpapers(e.target.value);
+                this.currentSearchQuery = e.target.value;
+                console.log('Search query changed to:', this.currentSearchQuery);
+                // Debounce search
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    console.log('Executing search with query:', this.currentSearchQuery);
+                    this.loadData();
+                }, 300);
             });
+        } else {
+            console.error('Search input not found!');
         }
         
-        // Status filter
-        const statusFilter = document.getElementById('statusFilter');
-        if (statusFilter) {
-            statusFilter.addEventListener('change', (e) => {
-                this.filterByStatus(e.target.value);
+        // User filter
+        const userFilter = document.getElementById('userFilter');
+        if (userFilter) {
+            userFilter.addEventListener('change', (e) => {
+                this.currentUserFilter = e.target.value;
+                this.loadData();
+                this.loadStatistics(); // Also update statistics when user changes
             });
         }
         
@@ -66,37 +83,93 @@ class WallpaperManager {
     
     populateConfigForm(config) {
         const steamLibraryPath = document.getElementById('steamLibraryPath');
+        const steamUserdataPath = document.getElementById('steamUserdataPath');
         const serverPort = document.getElementById('serverPort');
         const debugMode = document.getElementById('debugMode');
         
         if (steamLibraryPath) steamLibraryPath.value = config.steam_library_path || '';
+        if (steamUserdataPath) steamUserdataPath.value = config.steam_userdata_path || '';
         if (serverPort) serverPort.value = config.server?.port || 5000;
         if (debugMode) debugMode.checked = config.server?.debug || false;
+    }
+    
+    async loadUsers() {
+        try {
+            const response = await fetch('/api/users');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.users = result.data;
+                this.populateUserFilter();
+            } else {
+                console.error('Error loading users:', result.error);
+            }
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    }
+    
+    populateUserFilter() {
+        const userFilter = document.getElementById('userFilter');
+        if (!userFilter) return;
+        
+        // Clear existing options except "所有用户"
+        while (userFilter.children.length > 1) {
+            userFilter.removeChild(userFilter.lastChild);
+        }
+        
+        // Add user options
+        this.users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.display_name} (${user.subscription_count} 订阅)`;
+            userFilter.appendChild(option);
+        });
     }
     
     async loadData() {
         this.showLoading(true);
         
         try {
+            // Build URL with filters
+            let url = '/api/wallpapers?';
+            const params = new URLSearchParams();
+            
+            if (this.currentSearchQuery) {
+                console.log('Adding search parameter:', this.currentSearchQuery);
+                params.append('search', this.currentSearchQuery);
+            }
+            
+            if (this.currentUserFilter && this.currentUserFilter !== 'all') {
+                console.log('Adding user filter:', this.currentUserFilter);
+                params.append('user', this.currentUserFilter);
+            }
+            
+            url += params.toString();
+            console.log('Fetching wallpapers from URL:', url);
+            
             // Load wallpapers
-            const wallpaperResponse = await fetch('/api/wallpapers');
+            const wallpaperResponse = await fetch(url);
             const wallpaperResult = await wallpaperResponse.json();
             
             if (wallpaperResult.success) {
                 this.wallpapers.subscribed = wallpaperResult.data.subscribed || [];
                 this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed || [];
+                console.log('Search results - Subscribed:', this.wallpapers.subscribed.length, 'Unsubscribed:', this.wallpapers.unsubscribed.length);
                 this.renderWallpapers();
             } else {
                 this.showToast('Error loading wallpapers: ' + wallpaperResult.error, 'error');
             }
             
-            // Load statistics
-            const statsResponse = await fetch('/api/stats');
-            const statsResult = await statsResponse.json();
+            // Load statistics with user filter
+            this.loadStatistics();
             
-            if (statsResult.success) {
-                this.updateStatistics(statsResult.data);
-            }
+            // Check Steam path status after loading data
+            setTimeout(() => {
+                if (typeof checkSteamPathStatus === 'function') {
+                    checkSteamPathStatus();
+                }
+            }, 100);
             
         } catch (error) {
             console.error('Error loading data:', error);
@@ -121,6 +194,25 @@ class WallpaperManager {
         // Update badges
         document.getElementById('subscribedBadge').textContent = stats.subscribed.count;
         document.getElementById('unsubscribedBadge').textContent = stats.unsubscribed.count;
+    }
+    
+    async loadStatistics() {
+        try {
+            // Build stats URL with user filter
+            let statsUrl = '/api/stats';
+            if (this.currentUserFilter && this.currentUserFilter !== 'all') {
+                statsUrl += `?user=${this.currentUserFilter}`;
+            }
+            
+            const statsResponse = await fetch(statsUrl);
+            const statsResult = await statsResponse.json();
+            
+            if (statsResult.success) {
+                this.updateStatistics(statsResult.data);
+            }
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
     }
     
     renderWallpapers() {
@@ -155,6 +247,16 @@ class WallpaperManager {
         const statusClass = wallpaper.subscribed ? 'status-subscribed' : 'status-unsubscribed';
         const statusText = wallpaper.subscribed ? '已订阅' : '未订阅';
         
+        // Create user subscription info
+        let userInfo = '';
+        if (wallpaper.subscribed_by_users !== undefined) {
+            if (wallpaper.subscribed_by_users > 0) {
+                userInfo = `<small class="text-muted">👥 ${wallpaper.subscribed_by_users} 用户订阅</small>`;
+            } else {
+                userInfo = `<small class="text-muted">👥 无用户订阅</small>`;
+            }
+        }
+        
         return `
             <div class="wallpaper-card" data-id="${wallpaper.id}" onclick="wallpaperManager.showWallpaperDetail('${wallpaper.id}')">
                 ${showCheckbox ? `
@@ -176,6 +278,7 @@ class WallpaperManager {
                     </div>
                     <div class="wallpaper-status">
                         <span class="badge ${statusClass}">${statusText}</span>
+                        ${userInfo}
                     </div>
                 </div>
             </div>
@@ -278,6 +381,34 @@ class WallpaperManager {
                 ${wallpaper.subscribed ? '已订阅' : '未订阅'}
             </span>`;
         
+        // Display subscription details by user
+        const subscriptionDetailsElement = document.getElementById('wallpaperSubscriptionDetails');
+        if (subscriptionDetailsElement && wallpaper.subscription_details) {
+            let subscriptionHtml = '';
+            
+            if (wallpaper.subscription_details.length > 0) {
+                subscriptionHtml = '<h6>订阅详情:</h6><ul class="list-unstyled">';
+                wallpaper.subscription_details.forEach(detail => {
+                    const statusIcon = detail.is_active ? '✅' : '❌';
+                    const statusText = detail.is_active ? '活跃' : '已禁用';
+                    const subscribeDate = detail.time_subscribed !== 'Unknown' ? 
+                        new Date(parseInt(detail.time_subscribed) * 1000).toLocaleDateString() : '未知';
+                    
+                    subscriptionHtml += `
+                        <li class="mb-2">
+                            ${statusIcon} <strong>用户 ${detail.user_id}</strong> - ${statusText}
+                            <br><small class="text-muted">订阅时间: ${subscribeDate}</small>
+                        </li>
+                    `;
+                });
+                subscriptionHtml += '</ul>';
+            } else {
+                subscriptionHtml = '<p class="text-muted">📭 没有任何用户订阅此项目</p>';
+            }
+            
+            subscriptionDetailsElement.innerHTML = subscriptionHtml;
+        }
+        
         // Display path with proper formatting
         const pathElement = document.getElementById('wallpaperDetailPath');
         pathElement.textContent = wallpaper.path;
@@ -364,6 +495,7 @@ function refreshData() {
 async function saveConfig() {
     // 获取表单数据并进行验证
     const steamLibraryPath = document.getElementById('steamLibraryPath')?.value || '';
+    const steamUserdataPath = document.getElementById('steamUserdataPath')?.value || '';
     const serverPortInput = document.getElementById('serverPort');
     const debugModeInput = document.getElementById('debugMode');
     
@@ -378,6 +510,7 @@ async function saveConfig() {
     
     const config = {
         steam_library_path: steamLibraryPath,
+        steam_userdata_path: steamUserdataPath,
         server: {
             host: '127.0.0.1',
             port: serverPort,
@@ -412,6 +545,13 @@ async function saveConfig() {
             if (modal) {
                 modal.hide();
             }
+            
+            // Check Steam path status after saving config
+            setTimeout(() => {
+                if (typeof checkSteamPathStatus === 'function') {
+                    checkSteamPathStatus();
+                }
+            }, 500);
             
             // Reload data with new configuration
             setTimeout(() => {
