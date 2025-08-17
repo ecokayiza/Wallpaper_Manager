@@ -2,7 +2,7 @@
 
 A web-based interface for managing Wallpaper Engine subscriptions using Flask backend and responsive frontend.
 
-这是一个本地开发版本，使用需要手动配置python环境
+这是一个本地开发版本，使用者请见release版本
 请检查 `wallpaper manager.bat`
 
 ![demo](static/img/demo.png)
