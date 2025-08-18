@@ -49,39 +49,82 @@ def create_app():
     
     @app.route('/api/wallpapers')
     def get_wallpapers():
-        """Get all wallpapers"""
+        """Get wallpapers with pagination"""
         try:
             user_filter = request.args.get('user', None)
             search_query = request.args.get('search', None)
-            
+            page = int(request.args.get('page', 1))
+            page_size = int(request.args.get('page_size', 20))
+
             if user_filter and user_filter != 'all':
-                # Filter by specific user
+                # 用户过滤也做分页处理
                 subscribed = wallpaper_api.get_wallpapers_by_user(user_filter, subscribed_only=True)
                 unsubscribed = wallpaper_api.get_wallpapers_by_user(user_filter, subscribed_only=False)
+                # 搜索和分页顺序：先搜索再分页
+                if search_query and search_query.strip():
+                    search_term = search_query.strip().lower()
+                    def matches_search(wallpaper):
+                        title_match = search_term in wallpaper.get('title', '').lower()
+                        return title_match
+                    subscribed = [w for w in subscribed if matches_search(w)]
+                    unsubscribed = [w for w in unsubscribed if matches_search(w)]
+                # 分页切片
+                start = (page - 1) * page_size
+                end = start + page_size
+                subscribed_page = subscribed[start:end]
+                unsubscribed_page = unsubscribed[start:end]
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'subscribed': {
+                            'total': len(subscribed),
+                            'page': page,
+                            'page_size': page_size,
+                            'wallpapers': subscribed_page
+                        },
+                        'unsubscribed': {
+                            'total': len(unsubscribed),
+                            'page': page,
+                            'page_size': page_size,
+                            'wallpapers': unsubscribed_page
+                        }
+                    }
+                })
             else:
-                # Get all wallpapers
-                subscribed = wallpaper_api.get_subscribed_wallpapers()
-                unsubscribed = wallpaper_api.get_unsubscribed_wallpapers()
-            
-            # Apply search filter if provided
-            if search_query and search_query.strip():
-                search_term = search_query.strip().lower()
-                
-                def matches_search(wallpaper):
-                    # Search only in title
-                    title_match = search_term in wallpaper.get('title', '').lower()
-                    return title_match
-                
-                subscribed = [w for w in subscribed if matches_search(w)]
-                unsubscribed = [w for w in unsubscribed if matches_search(w)]
-            
-            return jsonify({
-                'success': True,
-                'data': {
-                    'subscribed': subscribed,
-                    'unsubscribed': unsubscribed
+                # 分页获取所有壁纸，搜索和分页顺序：先搜索再分页
+                all_subscribed = wallpaper_api.get_subscribed_wallpapers()
+                all_unsubscribed = wallpaper_api.get_unsubscribed_wallpapers()
+                if search_query and search_query.strip():
+                    search_term = search_query.strip().lower()
+                    def matches_search(wallpaper):
+                        title_match = search_term in wallpaper.get('title', '').lower()
+                        return title_match
+                    all_subscribed = [w for w in all_subscribed if matches_search(w)]
+                    all_unsubscribed = [w for w in all_unsubscribed if matches_search(w)]
+                # 分页切片
+                start = (page - 1) * page_size
+                end = start + page_size
+                subscribed_page = all_subscribed[start:end]
+                unsubscribed_page = all_unsubscribed[start:end]
+                subscribed_result = {
+                    'total': len(all_subscribed),
+                    'page': page,
+                    'page_size': page_size,
+                    'wallpapers': subscribed_page
                 }
-            })
+                unsubscribed_result = {
+                    'total': len(all_unsubscribed),
+                    'page': page,
+                    'page_size': page_size,
+                    'wallpapers': unsubscribed_page
+                }
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'subscribed': subscribed_result,
+                        'unsubscribed': unsubscribed_result
+                    }
+                })
         except Exception as e:
             return jsonify({
                 'success': False,

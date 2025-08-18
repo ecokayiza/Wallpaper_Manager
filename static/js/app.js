@@ -7,11 +7,18 @@ class WallpaperManager {
         };
         this.selectedWallpapers = new Set();
         this.currentWallpaper = null;
-        this.users = [];  // Store user list
+        this.users = [];
         this.currentUserFilter = 'all';
         this.currentSearchQuery = '';
         this.searchTimeout = null;
-        
+
+        // 分页相关状态
+        this.subscribedPage = 1;
+        this.unsubscribedPage = 1;
+        this.pageSize = 40;
+        this.subscribedTotal = 0;
+        this.unsubscribedTotal = 0;
+
         this.init();
     }
     
@@ -129,54 +136,110 @@ class WallpaperManager {
     
     async loadData() {
         this.showLoading(true);
-        
         try {
-            // Build URL with filters
             let url = '/api/wallpapers?';
             const params = new URLSearchParams();
-            
             if (this.currentSearchQuery) {
-                console.log('Adding search parameter:', this.currentSearchQuery);
                 params.append('search', this.currentSearchQuery);
             }
-            
             if (this.currentUserFilter && this.currentUserFilter !== 'all') {
-                console.log('Adding user filter:', this.currentUserFilter);
                 params.append('user', this.currentUserFilter);
             }
-            
+            // 分页参数
+            params.append('page', this.subscribedPage);
+            params.append('page_size', this.pageSize);
             url += params.toString();
-            console.log('Fetching wallpapers from URL:', url);
-            
-            // Load wallpapers
+            // 请求壁纸
             const wallpaperResponse = await fetch(url);
             const wallpaperResult = await wallpaperResponse.json();
-            
             if (wallpaperResult.success) {
-                this.wallpapers.subscribed = wallpaperResult.data.subscribed || [];
-                this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed || [];
-                console.log('Search results - Subscribed:', this.wallpapers.subscribed.length, 'Unsubscribed:', this.wallpapers.unsubscribed.length);
+                // 兼容用户过滤时返回数组
+                if (Array.isArray(wallpaperResult.data.subscribed)) {
+                    this.wallpapers.subscribed = wallpaperResult.data.subscribed;
+                    this.subscribedTotal = this.wallpapers.subscribed.length;
+                } else {
+                    this.wallpapers.subscribed = wallpaperResult.data.subscribed.wallpapers || [];
+                    this.subscribedTotal = wallpaperResult.data.subscribed.total || 0;
+                }
+                if (Array.isArray(wallpaperResult.data.unsubscribed)) {
+                    this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed;
+                    this.unsubscribedTotal = this.wallpapers.unsubscribed.length;
+                } else {
+                    this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed.wallpapers || [];
+                    this.unsubscribedTotal = wallpaperResult.data.unsubscribed.total || 0;
+                }
                 this.renderWallpapers();
+                this.renderPagination();
             } else {
                 this.showToast('Error loading wallpapers: ' + wallpaperResult.error, 'error');
             }
-            
-            // Load statistics with user filter
             this.loadStatistics();
-            
-            // Check Steam path status after loading data
             setTimeout(() => {
                 if (typeof checkSteamPathStatus === 'function') {
                     checkSteamPathStatus();
                 }
             }, 100);
-            
         } catch (error) {
             console.error('Error loading data:', error);
             this.showToast('Error loading data: ' + error.message, 'error');
         } finally {
             this.showLoading(false);
         }
+    }
+    renderPagination() {
+        // 已订阅分页
+        this.renderSinglePagination('subscribedPagination', this.subscribedPage, this.subscribedTotal, (page) => {
+            this.subscribedPage = page;
+            this.loadData();
+        });
+        // 未订阅分页
+        this.renderSinglePagination('unsubscribedPagination', this.unsubscribedPage, this.unsubscribedTotal, (page) => {
+            this.unsubscribedPage = page;
+            this.loadData();
+        });
+    }
+
+    renderSinglePagination(containerId, currentPage, totalItems, onPageChange) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        const totalPages = Math.max(1, Math.ceil(totalItems / this.pageSize));
+        // 上一页
+        const prevLi = document.createElement('li');
+        prevLi.className = 'page-item' + (currentPage <= 1 ? ' disabled' : '');
+        prevLi.innerHTML = `<a class="page-link" href="#">上一页</a>`;
+        prevLi.onclick = (e) => {
+            e.preventDefault();
+            if (currentPage > 1) onPageChange(currentPage - 1);
+        };
+        container.appendChild(prevLi);
+        // 页码
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) {
+                const pageLi = document.createElement('li');
+                pageLi.className = 'page-item' + (i === currentPage ? ' active' : '');
+                pageLi.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                pageLi.onclick = (e) => {
+                    e.preventDefault();
+                    if (i !== currentPage) onPageChange(i);
+                };
+                container.appendChild(pageLi);
+            } else if (i === currentPage - 3 || i === currentPage + 3) {
+                const ellipsisLi = document.createElement('li');
+                ellipsisLi.className = 'page-item disabled';
+                ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                container.appendChild(ellipsisLi);
+            }
+        }
+        // 下一页
+        const nextLi = document.createElement('li');
+        nextLi.className = 'page-item' + (currentPage >= totalPages ? ' disabled' : '');
+        nextLi.innerHTML = `<a class="page-link" href="#">下一页</a>`;
+        nextLi.onclick = (e) => {
+            e.preventDefault();
+            if (currentPage < totalPages) onPageChange(currentPage + 1);
+        };
+        container.appendChild(nextLi);
     }
     
     updateStatistics(stats) {
@@ -235,6 +298,13 @@ class WallpaperManager {
             return;
         }
         
+        // log
+        // console.log(`[DEBUG] 渲染 ${containerId}，加载壁纸数量:`, wallpapers.length);
+        // wallpapers.slice(0, 5).forEach((wp, idx) => {
+        //     console.log(`[DEBUG] 壁纸${idx+1}:`, wp.id, wp.title, wp.size_formatted);
+        // });
+
+
         container.innerHTML = wallpapers.map(wallpaper => 
             this.createWallpaperCard(wallpaper, showCheckbox)
         ).join('');
@@ -308,6 +378,18 @@ class WallpaperManager {
                 element.classList.remove('loading');
             }
         }
+        // 统计当前页面 img 元素数量和总像素
+        // setTimeout(() => {
+        //     const imgs = container.querySelectorAll('img');
+        //     let totalPixels = 0;
+        //     imgs.forEach(img => {
+        //         totalPixels += (img.naturalWidth || 0) * (img.naturalHeight || 0);
+        //     });
+        //     console.log(`[DEBUG] 当前页面图片数量: ${imgs.length}, 总像素: ${totalPixels}`);
+        //     imgs.forEach((img, idx) => {
+        //         console.log(`[DEBUG] 图片${idx+1}: src=${img.src}, size=${img.naturalWidth}x${img.naturalHeight}`);
+        //     });
+        // }, 1000);
     }
     
     toggleWallpaperSelection(wallpaperId, selected) {

@@ -12,6 +12,33 @@ from utils.image_processor import ImageProcessor
 
 
 class WallpaperAPI:
+    def get_subscribed_wallpapers_paginated(self, page=1, page_size=20):
+        """分页获取已订阅壁纸"""
+        all_wallpapers = self.get_subscribed_wallpapers()
+        total = len(all_wallpapers)
+        start = (page - 1) * page_size
+        end = start + page_size
+        paged_wallpapers = all_wallpapers[start:end]
+        return {
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'wallpapers': paged_wallpapers
+        }
+
+    def get_unsubscribed_wallpapers_paginated(self, page=1, page_size=20):
+        """分页获取未订阅壁纸"""
+        all_wallpapers = self.get_unsubscribed_wallpapers()
+        total = len(all_wallpapers)
+        start = (page - 1) * page_size
+        end = start + page_size
+        paged_wallpapers = all_wallpapers[start:end]
+        return {
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'wallpapers': paged_wallpapers
+        }
     """Wallpaper management API"""
     
     def __init__(self, config):
