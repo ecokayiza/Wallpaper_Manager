@@ -107,7 +107,7 @@ class ConfigAPI:
             return self.config['workshop_file']
         else:
             steam_path = self.get_steam_library_path()
-            return str(Path(steam_path) / "steamapps" / "workshop" / "appworkshop_431960.acf")
+            return str(Path(steam_path) / "workshop" / "appworkshop_431960.acf")
     
     def get_content_path(self):
         """Get content path"""
@@ -115,4 +115,4 @@ class ConfigAPI:
             return Path(self.config['content_path'])
         else:
             steam_path = self.get_steam_library_path()
-            return Path(steam_path) / "steamapps" / "workshop" / "content" / "431960"
+            return Path(steam_path) / "workshop" / "content" / "431960"

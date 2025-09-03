@@ -25,7 +25,7 @@ def create_app():
     else:
         # Default configuration
         app.config.update({
-            'steam_library_path': 'F:\\SteamLibrary',
+            'steam_library_path': 'F:\\SteamLibrary\\steamapps',
             'server': {
                 'host': '127.0.0.1',
                 'port': 5000,

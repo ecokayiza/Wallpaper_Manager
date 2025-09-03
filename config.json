@@ -1,5 +1,5 @@
 {
-  "steam_library_path": "F:\\SteamLibrary",
+  "steam_library_path": "F:\\SteamLibrary\\steamapps",
   "steam_userdata_path": "C:\\Program Files (x86)\\Steam\\userdata",
   "server": {
     "host": "127.0.0.1",

@@ -70,7 +70,7 @@ def main():
     if not config_file.exists():
         print("\n⚙️  创建默认配置文件...")
         default_config = {
-            "steam_library_path": "F:\\SteamLibrary",
+            "steam_library_path": "F:\\SteamLibrary\\steamapps",
             "workshop_file": "",
             "content_path": "",
             "server": {
