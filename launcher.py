@@ -13,7 +13,7 @@ import os
 # Import the Flask app
 from app import create_app
 
-def open_browser(url='http://127.0.0.1:5000', delay=2):
+def open_browser(url='http://127.0.0.1:5000', delay=1):
     """Open browser after a delay"""
     time.sleep(delay)
     try:
