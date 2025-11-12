@@ -3,7 +3,6 @@
 /__pycache__
 /build
 /dist
-app.spec
 /config.json.bak
 /api/__pycache__
 /util/__pycache__

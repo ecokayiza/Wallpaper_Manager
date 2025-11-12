@@ -137,43 +137,13 @@ class WallpaperManager {
     async loadData() {
         this.showLoading(true);
         try {
-            let url = '/api/wallpapers?';
-            const params = new URLSearchParams();
-            if (this.currentSearchQuery) {
-                params.append('search', this.currentSearchQuery);
-            }
-            if (this.currentUserFilter && this.currentUserFilter !== 'all') {
-                params.append('user', this.currentUserFilter);
-            }
-            // 分页参数
-            params.append('page', this.subscribedPage);
-            params.append('page_size', this.pageSize);
-            url += params.toString();
-            // 请求壁纸
-            const wallpaperResponse = await fetch(url);
-            const wallpaperResult = await wallpaperResponse.json();
-            if (wallpaperResult.success) {
-                // 兼容用户过滤时返回数组
-                if (Array.isArray(wallpaperResult.data.subscribed)) {
-                    this.wallpapers.subscribed = wallpaperResult.data.subscribed;
-                    this.subscribedTotal = this.wallpapers.subscribed.length;
-                } else {
-                    this.wallpapers.subscribed = wallpaperResult.data.subscribed.wallpapers || [];
-                    this.subscribedTotal = wallpaperResult.data.subscribed.total || 0;
-                }
-                if (Array.isArray(wallpaperResult.data.unsubscribed)) {
-                    this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed;
-                    this.unsubscribedTotal = this.wallpapers.unsubscribed.length;
-                } else {
-                    this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed.wallpapers || [];
-                    this.unsubscribedTotal = wallpaperResult.data.unsubscribed.total || 0;
-                }
-                this.renderWallpapers();
-                this.renderPagination();
-            } else {
-                this.showToast('Error loading wallpapers: ' + wallpaperResult.error, 'error');
-            }
+            // 使用单个请求加载数据，但传递各自的页码
+            await this.loadWallpaperData();
+            
+            this.renderWallpapers();
+            this.renderPagination();
             this.loadStatistics();
+            
             setTimeout(() => {
                 if (typeof checkSteamPathStatus === 'function') {
                     checkSteamPathStatus();
@@ -184,6 +154,52 @@ class WallpaperManager {
             this.showToast('Error loading data: ' + error.message, 'error');
         } finally {
             this.showLoading(false);
+        }
+    }
+
+    async loadWallpaperData() {
+        try {
+            let url = '/api/wallpapers?';
+            const params = new URLSearchParams();
+            if (this.currentSearchQuery) {
+                params.append('search', this.currentSearchQuery);
+            }
+            if (this.currentUserFilter && this.currentUserFilter !== 'all') {
+                params.append('user', this.currentUserFilter);
+            }
+            // 分别传递已订阅和未订阅的页码
+            params.append('subscribed_page', this.subscribedPage);
+            params.append('unsubscribed_page', this.unsubscribedPage);
+            params.append('page_size', this.pageSize);
+            url += params.toString();
+            
+            const wallpaperResponse = await fetch(url);
+            const wallpaperResult = await wallpaperResponse.json();
+            
+            if (wallpaperResult.success) {
+                // 处理已订阅数据
+                if (Array.isArray(wallpaperResult.data.subscribed)) {
+                    this.wallpapers.subscribed = wallpaperResult.data.subscribed;
+                    this.subscribedTotal = this.wallpapers.subscribed.length;
+                } else {
+                    this.wallpapers.subscribed = wallpaperResult.data.subscribed.wallpapers || [];
+                    this.subscribedTotal = wallpaperResult.data.subscribed.total || 0;
+                }
+                
+                // 处理未订阅数据
+                if (Array.isArray(wallpaperResult.data.unsubscribed)) {
+                    this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed;
+                    this.unsubscribedTotal = this.wallpapers.unsubscribed.length;
+                } else {
+                    this.wallpapers.unsubscribed = wallpaperResult.data.unsubscribed.wallpapers || [];
+                    this.unsubscribedTotal = wallpaperResult.data.unsubscribed.total || 0;
+                }
+            } else {
+                this.showToast('Error loading wallpapers: ' + wallpaperResult.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error loading wallpaper data:', error);
+            throw error;
         }
     }
     renderPagination() {
@@ -257,6 +273,33 @@ class WallpaperManager {
         // Update badges
         document.getElementById('subscribedBadge').textContent = stats.subscribed.count;
         document.getElementById('unsubscribedBadge').textContent = stats.unsubscribed.count;
+        
+        // Update progress bar widths
+        const totalSize = stats.total.size || 1; // Avoid division by zero
+        const subscribedSize = stats.subscribed.size || 0;
+        const unsubscribedSize = stats.unsubscribed.size || 0;
+        
+        const subscribedPercent = (subscribedSize / totalSize) * 100;
+        const unsubscribedPercent = (unsubscribedSize / totalSize) * 100;
+        
+        const subscribedSegment = document.getElementById('subscribedSegment');
+        const unsubscribedSegment = document.getElementById('unsubscribedSegment');
+        
+        if (subscribedSegment && unsubscribedSegment) {
+            subscribedSegment.style.width = subscribedPercent + '%';
+            unsubscribedSegment.style.width = unsubscribedPercent + '%';
+            
+            // Hide label if segment is too small
+            const subscribedLabel = subscribedSegment.querySelector('.storage-label');
+            const unsubscribedLabel = unsubscribedSegment.querySelector('.storage-label');
+            
+            if (subscribedLabel) {
+                subscribedLabel.style.display = subscribedPercent < 15 ? 'none' : 'block';
+            }
+            if (unsubscribedLabel) {
+                unsubscribedLabel.style.display = unsubscribedPercent < 15 ? 'none' : 'block';
+            }
+        }
     }
     
     async loadStatistics() {
@@ -801,37 +844,77 @@ function copyPath() {
     }
 }
 
-function exportData(type) {
-    const data = type === 'subscribed' ? 
-        window.wallpaperManager.wallpapers.subscribed : 
-        window.wallpaperManager.wallpapers.unsubscribed;
-    
-    if (data.length === 0) {
-        window.wallpaperManager.showToast('没有数据可导出', 'info');
-        return;
+async function exportData(type) {
+    try {
+        window.wallpaperManager.showLoading(true);
+        
+        // 获取所有数据（不分页）
+        let url = '/api/wallpapers?';
+        const params = new URLSearchParams();
+        if (window.wallpaperManager.currentSearchQuery) {
+            params.append('search', window.wallpaperManager.currentSearchQuery);
+        }
+        if (window.wallpaperManager.currentUserFilter && window.wallpaperManager.currentUserFilter !== 'all') {
+            params.append('user', window.wallpaperManager.currentUserFilter);
+        }
+        // 使用大的页面大小来获取所有数据
+        params.append('subscribed_page', 1);
+        params.append('unsubscribed_page', 1);
+        params.append('page_size', 999999);
+        url += params.toString();
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (!result.success) {
+            window.wallpaperManager.showToast('获取数据失败', 'error');
+            return;
+        }
+        
+        // 根据类型选择数据
+        let data;
+        if (type === 'subscribed') {
+            data = Array.isArray(result.data.subscribed) ? 
+                result.data.subscribed : 
+                (result.data.subscribed.wallpapers || []);
+        } else {
+            data = Array.isArray(result.data.unsubscribed) ? 
+                result.data.unsubscribed : 
+                (result.data.unsubscribed.wallpapers || []);
+        }
+        
+        if (data.length === 0) {
+            window.wallpaperManager.showToast('没有数据可导出', 'info');
+            return;
+        }
+        
+        // Create CSV content
+        const headers = ['ID', '标题', '大小', '状态', '路径'];
+        const csvContent = [
+            headers.join(','),
+            ...data.map(wp => [
+                wp.id,
+                `"${wp.title.replace(/"/g, '""')}"`,
+                wp.size_formatted,
+                wp.subscribed ? '已订阅' : '未订阅',
+                `"${wp.path.replace(/"/g, '""')}"`
+            ].join(','))
+        ].join('\n');
+        
+        // Download file
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `wallpapers_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+        
+        window.wallpaperManager.showToast(`成功导出 ${data.length} 条数据`, 'info');
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        window.wallpaperManager.showToast('导出数据失败: ' + error.message, 'error');
+    } finally {
+        window.wallpaperManager.showLoading(false);
     }
-    
-    // Create CSV content
-    const headers = ['ID', '标题', '大小', '状态', '路径'];
-    const csvContent = [
-        headers.join(','),
-        ...data.map(wp => [
-            wp.id,
-            `"${wp.title.replace(/"/g, '""')}"`,
-            wp.size_formatted,
-            wp.subscribed ? '已订阅' : '未订阅',
-            `"${wp.path.replace(/"/g, '""')}"`
-        ].join(','))
-    ].join('\n');
-    
-    // Download file
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `wallpapers_${type}_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    
-    window.wallpaperManager.showToast('数据导出成功', 'info');
 }
 
 // Initialize when DOM is loaded

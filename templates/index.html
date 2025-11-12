@@ -3,72 +3,50 @@
 {% block title %}Wallpaper Engine Web Manager{% endblock %}
 
 {% block content %}
-<!-- Statistics Cards -->
-<div class="row mb-4">
-    <div class="col-md-3 mb-3">
-        <div class="card bg-primary text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">总计壁纸</h6>
-                        <h3 class="mb-0" id="totalCount">-</h3>
+<!-- Statistics Info Bar -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body py-3">
+        <div class="d-flex align-items-center">
+            <!-- Left: Storage Usage Progress Bar -->
+            <div class="flex-grow-1 me-4">
+                <div class="mb-2">
+                    <small class="text-muted">
+                        <i class="fas fa-hdd me-1"></i>
+                        存储空间使用情况: <span id="totalSize">-</span>
+                    </small>
+                </div>
+                <div class="storage-progress-bar">
+                    <div class="storage-segment subscribed-segment" id="subscribedSegment" style="width: 0%;">
+                        <span class="storage-label">已订阅: <span id="subscribedSize">-</span></span>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-images fa-2x opacity-75"></i>
+                    <div class="storage-segment unsubscribed-segment" id="unsubscribedSegment" style="width: 0%;">
+                        <span class="storage-label">未订阅: <span id="unsubscribedSize">-</span></span>
                     </div>
                 </div>
-                <small id="totalSize">-</small>
+                <div class="mt-2">
+                    <small class="text-warning">
+                        <i class="fas fa-trash-alt me-1"></i>
+                        可释放空间: <strong id="reclaimableSize">-</strong>
+                    </small>
+                </div>
             </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3 mb-3">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">已订阅</h6>
-                        <h3 class="mb-0" id="subscribedCount">-</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
-                    </div>
+            
+            <!-- Right: Statistics Numbers -->
+            <div class="stats-numbers">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalCount">-</div>
+                    <div class="stat-label">总计</div>
                 </div>
-                <small id="subscribedSize">-</small>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3 mb-3">
-        <div class="card bg-warning text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">未订阅</h6>
-                        <h3 class="mb-0" id="unsubscribedCount">-</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
-                    </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value text-success" id="subscribedCount">-</div>
+                    <div class="stat-label">已订阅</div>
                 </div>
-                <small id="unsubscribedSize">-</small>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3 mb-3">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">可释放空间</h6>
-                        <h3 class="mb-0" id="reclaimableSize">-</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-hdd fa-2x opacity-75"></i>
-                    </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <div class="stat-value text-warning" id="unsubscribedCount">-</div>
+                    <div class="stat-label">未订阅</div>
                 </div>
-                <small>删除未订阅壁纸</small>
             </div>
         </div>
     </div>

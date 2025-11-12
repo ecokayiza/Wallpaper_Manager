@@ -33,16 +33,19 @@ class SteamParser:
         if self.config.get('workshop_file'):
             return self.config['workshop_file']
         else:
-            steam_path = self.get_steam_library_path()
-            return str(Path(steam_path) / "workshop" / "appworkshop_431960.acf")
+            # steam_library_path now points directly to 431960 directory
+            # Go up to workshop directory to find the acf file
+            content_path = self.get_steam_library_path()
+            workshop_path = Path(content_path).parent.parent  # Up from 431960/content to workshop
+            return str(workshop_path / "appworkshop_431960.acf")
     
     def get_content_path(self):
-        """Get content path"""
+        """Get content path (now steam_library_path points directly to 431960)"""
         if self.config.get('content_path'):
             return Path(self.config['content_path'])
         else:
-            steam_path = self.get_steam_library_path()
-            return Path(steam_path) / "workshop" / "content" / "431960"
+            # steam_library_path now directly points to the 431960 directory
+            return Path(self.get_steam_library_path())
     
     def get_all_subscription_data(self):
         """

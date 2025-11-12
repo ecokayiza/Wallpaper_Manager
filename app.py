@@ -23,9 +23,9 @@ def create_app():
             config = json.load(f)
         app.config.update(config)
     else:
-        # Default configuration
+        # Default configuration (path now points directly to 431960 directory)
         app.config.update({
-            'steam_library_path': 'F:\\SteamLibrary\\steamapps',
+            'steam_library_path': 'F:\\SteamLibrary\\steamapps\\workshop\\content\\431960',
             'server': {
                 'host': '127.0.0.1',
                 'port': 5000,
@@ -53,7 +53,9 @@ def create_app():
         try:
             user_filter = request.args.get('user', None)
             search_query = request.args.get('search', None)
-            page = int(request.args.get('page', 1))
+            # 支持独立的页码参数
+            subscribed_page = int(request.args.get('subscribed_page', request.args.get('page', 1)))
+            unsubscribed_page = int(request.args.get('unsubscribed_page', request.args.get('page', 1)))
             page_size = int(request.args.get('page_size', 20))
 
             if user_filter and user_filter != 'all':
@@ -68,25 +70,27 @@ def create_app():
                         return title_match
                     subscribed = [w for w in subscribed if matches_search(w)]
                     unsubscribed = [w for w in unsubscribed if matches_search(w)]
-                # 分页切片
-                start = (page - 1) * page_size
-                end = start + page_size
-                subscribed_page = subscribed[start:end]
-                unsubscribed_page = unsubscribed[start:end]
+                # 分别分页切片
+                sub_start = (subscribed_page - 1) * page_size
+                sub_end = sub_start + page_size
+                unsub_start = (unsubscribed_page - 1) * page_size
+                unsub_end = unsub_start + page_size
+                subscribed_result = subscribed[sub_start:sub_end]
+                unsubscribed_result = unsubscribed[unsub_start:unsub_end]
                 return jsonify({
                     'success': True,
                     'data': {
                         'subscribed': {
                             'total': len(subscribed),
-                            'page': page,
+                            'page': subscribed_page,
                             'page_size': page_size,
-                            'wallpapers': subscribed_page
+                            'wallpapers': subscribed_result
                         },
                         'unsubscribed': {
                             'total': len(unsubscribed),
-                            'page': page,
+                            'page': unsubscribed_page,
                             'page_size': page_size,
-                            'wallpapers': unsubscribed_page
+                            'wallpapers': unsubscribed_result
                         }
                     }
                 })
@@ -101,28 +105,29 @@ def create_app():
                         return title_match
                     all_subscribed = [w for w in all_subscribed if matches_search(w)]
                     all_unsubscribed = [w for w in all_unsubscribed if matches_search(w)]
-                # 分页切片
-                start = (page - 1) * page_size
-                end = start + page_size
-                subscribed_page = all_subscribed[start:end]
-                unsubscribed_page = all_unsubscribed[start:end]
-                subscribed_result = {
-                    'total': len(all_subscribed),
-                    'page': page,
-                    'page_size': page_size,
-                    'wallpapers': subscribed_page
-                }
-                unsubscribed_result = {
-                    'total': len(all_unsubscribed),
-                    'page': page,
-                    'page_size': page_size,
-                    'wallpapers': unsubscribed_page
-                }
+                # 分别分页切片
+                sub_start = (subscribed_page - 1) * page_size
+                sub_end = sub_start + page_size
+                unsub_start = (unsubscribed_page - 1) * page_size
+                unsub_end = unsub_start + page_size
+                subscribed_result = all_subscribed[sub_start:sub_end]
+                unsubscribed_result = all_unsubscribed[unsub_start:unsub_end]
+                
                 return jsonify({
                     'success': True,
                     'data': {
-                        'subscribed': subscribed_result,
-                        'unsubscribed': unsubscribed_result
+                        'subscribed': {
+                            'total': len(all_subscribed),
+                            'page': subscribed_page,
+                            'page_size': page_size,
+                            'wallpapers': subscribed_result
+                        },
+                        'unsubscribed': {
+                            'total': len(all_unsubscribed),
+                            'page': unsubscribed_page,
+                            'page_size': page_size,
+                            'wallpapers': unsubscribed_result
+                        }
                     }
                 })
         except Exception as e:
